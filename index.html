@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Eklavya JEE Test Series 2027 - Proctored Portal</title>
   
-  <!-- PDF.js library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-  <!-- PeerJS for P2P WebRTC Admin Stream -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
   <style>
@@ -21,7 +19,6 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background: #f4f6f9; color: #333; min-height: 100vh; }
     
-    /* Login & Strict Permission Modal */
     #login-screen { 
       max-width: 480px; 
       margin: 40px auto; 
@@ -47,7 +44,6 @@
     }
     .perm-item { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-weight: 500; color: #1e293b; }
 
-    /* Browser Unblock Guide */
     .error-card { 
       background: #fef2f2; 
       border: 1px solid #f87171; 
@@ -79,7 +75,6 @@
     .btn-reload { background: #475569; margin-top: 8px; }
     .btn-reload:hover { background: #334155; }
 
-    /* Header */
     header { background: var(--primary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
     header h3 { font-size: 16px; display: flex; align-items: center; gap: 10px; }
     .status-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #a7f3d0; background: rgba(16, 185, 129, 0.2); padding: 4px 10px; border-radius: 20px; }
@@ -87,7 +82,6 @@
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     .timer-box { background: var(--warning); color: #000; padding: 6px 12px; font-weight: bold; border-radius: 4px; font-size: 14px; }
 
-    /* Cheat Warning Banner */
     .warning-banner { 
       background: #fee2e2; 
       border-bottom: 2px solid var(--danger); 
@@ -101,7 +95,6 @@
     }
     @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
-    /* Main Test Layout */
     #test-screen { display: none; height: calc(100vh - 50px); flex-direction: column; }
     .main-container { display: flex; flex: 1; overflow: hidden; }
     
@@ -122,7 +115,6 @@
     .btn-review { background: #6f42c1; color: white; flex: 1; }
     .btn-submit { background: var(--danger); color: white; width: 100%; padding: 12px; font-size: 16px; margin-top: 15px; }
 
-    /* Palette */
     .palette-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; max-height: 150px; overflow-y: auto; padding: 8px; border: 1px solid #ddd; margin-top: 10px; }
     .p-btn { padding: 8px; text-align: center; background: #e0e0e0; border: 1px solid #bbb; cursor: pointer; font-weight: bold; border-radius: 3px; font-size: 12px; }
     .p-btn.answered { background: var(--success); color: white; }
@@ -130,7 +122,6 @@
     .p-btn.review { background: #6f42c1; color: white; }
     .p-btn.active { border: 2px solid #000; }
 
-    /* MOBILE RESPONSIVE FIX */
     @media (max-width: 768px) {
       .main-container { flex-direction: column; overflow-y: auto; }
       .pdf-viewer { flex: none; height: 50vh; border-right: none; border-bottom: 3px solid #ddd; }
@@ -138,7 +129,6 @@
       #test-screen { height: auto; min-height: 100vh; }
     }
 
-    /* Result Analysis Screen */
     #result-screen { display: none; max-width: 1100px; margin: 15px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
     .score-card { display: flex; justify-content: space-around; background: var(--primary); color: white; padding: 15px; border-radius: 6px; margin: 15px 0; text-align: center; flex-wrap: wrap; gap: 10px; }
     .score-box h3 { font-size: 20px; margin-top: 5px; }
@@ -153,13 +143,11 @@
     .status-correct { color: var(--success); font-weight: bold; }
     .status-wrong { color: var(--danger); font-weight: bold; }
 
-    /* Hidden background proctoring video */
     #webcam { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
   </style>
 </head>
 <body>
 
-  <!-- LOGIN & PROCTOR VERIFICATION -->
   <div id="login-screen">
     <h2>Eklavya JEE Test Series 2027</h2>
     <p style="color:#64748b; font-size:14px;">Enter candidate details to initialize the proctored test</p>
@@ -169,27 +157,25 @@
     
     <div class="permission-req-box" id="infoBox">
       <strong>Invigilation Hardware Checks:</strong>
-      <div class="perm-item">📷 Front Camera (Discreet continuous stream)</div>
-      <div class="perm-item">🎙️ Microphone (Room audio invigilation)</div>
+      <div class="perm-item">📷 Front Camera (Continuous monitoring)</div>
+      <div class="perm-item">🎙️ Microphone (Room audio monitoring)</div>
     </div>
 
-    <!-- Browser Permission Unblock Box -->
     <div id="permissionError" class="error-card">
       <strong>⚠️ Camera / Mic Permissions Blocked</strong>
-      <p style="margin-top:4px;">Browser has blocked media access. Follow these quick steps:</p>
+      <p style="margin-top:4px;">Browser ne permission block kar di hai. Isko aise allow karein:</p>
       <ol class="step-guide">
-        <li>Tap the <strong>Settings icon (🎛️ or 🔒)</strong> on the left side of the URL bar above.</li>
-        <li>Open <strong>Permissions</strong>.</li>
-        <li>Switch both <strong>Camera</strong> and <strong>Microphone</strong> to <strong>Allow (On)</strong>.</li>
-        <li>Tap the <strong>Reload Page</strong> button below.</li>
+        <li>Browser me upar URL bar ke left side me <strong>Settings icon (🎛️ ya 🔒)</strong> par tap karein.</li>
+        <li><strong>Permissions</strong> me jayein.</li>
+        <li><strong>Camera</strong> aur <strong>Microphone</strong> dono ko <strong>Allow</strong> karein.</li>
+        <li>Neeche <strong>"Reload Page"</strong> dabayein.</li>
       </ol>
     </div>
 
-    <button id="startBtn" class="btn-start" onclick="requestAccessAndStart()">Grant Permissions & Start Test</button>
+    <button id="startBtn" class="btn-start" onclick="startPermissionLoop()">Grant Permissions & Start Test</button>
     <button id="reloadBtn" class="btn-start btn-reload" style="display:none;" onclick="location.reload()">🔄 Reload Page</button>
   </div>
 
-  <!-- TEST SCREEN -->
   <div id="test-screen">
     <header>
       <h3>
@@ -231,7 +217,6 @@
     </div>
   </div>
 
-  <!-- RESULT & ANALYSIS SCREEN -->
   <div id="result-screen">
     <h2 style="color:var(--primary); text-align:center;">Test Performance Analysis</h2>
     <p style="text-align:center; color:#555; margin-top:5px;">Student: <b id="res-name"></b></p>
@@ -267,24 +252,20 @@
     </div>
   </div>
 
-  <!-- Background hidden video element & snapshot canvas -->
   <video id="webcam" autoplay playsinline muted></video>
   <canvas id="snapshotCanvas" style="display:none;"></canvas>
 
   <script>
-    // ================= CONFIGURATION =================
     const TEST_CONFIG = {
       pdfUrl: "https://files.catbox.moe/1nx01b.pdf", 
       answerKeyPdfUrl: "https://files.catbox.moe/zseu9d.pdf", 
       totalQuestions: 75,
       timeInMinutes: 180,
       answerKey: {
-        1: 'A', 2: 'B', 3: 'C', 4: 'D', 5: 'A',
-        // Add remaining keys...
+        1: 'A', 2: 'B', 3: 'C', 4: 'D', 5: 'A'
       }
     };
     const ADMIN_ROOM_ID = 'safalta-proctor-admin-main';
-    // =================================================
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
@@ -299,22 +280,26 @@
     let lastAlertTime = 0;
     const COOLDOWN_MS = 8000;
 
-    // --- Strict Permission & Proctor Init ---
-    async function requestAccessAndStart() {
+    // --- AGGRESSIVE PERMISSION POPUP LOOP ---
+    async function startPermissionLoop() {
+      studentName = document.getElementById('student-name').value.trim();
+      studentRoll = document.getElementById('student-roll').value.trim();
+
+      if (!studentName || !studentRoll) {
+        alert("⚠️ Pehle apna Full Name aur Roll Number daaliye!");
+        return;
+      }
+
+      await requestMediaWithAggressiveLoop();
+    }
+
+    async function requestMediaWithAggressiveLoop() {
       const errBox = document.getElementById('permissionError');
       const startBtn = document.getElementById('startBtn');
       const reloadBtn = document.getElementById('reloadBtn');
       const infoBox = document.getElementById('infoBox');
 
-      studentName = document.getElementById('student-name').value.trim();
-      studentRoll = document.getElementById('student-roll').value.trim();
-
-      if (!studentName || !studentRoll) {
-        alert("Please enter both Candidate Name and Roll Number!");
-        return;
-      }
-
-      startBtn.innerText = "Checking Hardware Access...";
+      startBtn.innerText = "Requesting Access...";
       startBtn.disabled = true;
 
       try {
@@ -323,6 +308,7 @@
           audio: { echoCancellation: true, noiseSuppression: true }
         });
 
+        // Permission Granted!
         const video = document.getElementById('webcam');
         video.srcObject = localStream;
 
@@ -330,7 +316,6 @@
           video.onloadedmetadata = () => resolve();
         });
 
-        // Launch exam UI
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('test-screen').style.display = 'flex';
         document.getElementById('user-display').innerText = studentName;
@@ -340,23 +325,38 @@
           document.documentElement.requestFullscreen().catch(() => {});
         }
 
-        // Initialize Proctor Streams & Anti-Cheat
         connectToAdminStream(localStream);
         setupAntiCheatListeners();
-
-        // Render PDF & Init CBT
         renderPDF(TEST_CONFIG.pdfUrl, 'pdf-container', 'loading-msg');
         initPalette();
         loadQuestion(1);
         startTimer();
 
       } catch (err) {
-        console.warn("User blocked media permission:", err);
+        console.warn("Permission loop caught error:", err);
+        startBtn.disabled = false;
+        startBtn.innerText = "⚠️ Allow Permission & Start";
+
+        // BAAR BAAR POPUP TRIGGER:
+        // Alert student immediately and ask them to tap OK to trigger the browser prompt again!
+        alert("⚠️ MANDATORY WARNING:\n\nCamera aur Microphone permission ke bina test start nahi hoga.\n\n'OK' par tap karein aur aage aane wale dialog me 'ALLOW' karein!");
+
+        // Agar Chrome ne hard block kar diya ho
         errBox.style.display = 'block';
         infoBox.style.display = 'none';
-        startBtn.innerText = "Try Again";
-        startBtn.disabled = false;
         reloadBtn.style.display = 'block';
+
+        // Re-request automatically after OK press
+        try {
+          await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user' },
+            audio: true
+          });
+          // If allowed in the second attempt, restart loop immediately
+          requestMediaWithAggressiveLoop();
+        } catch (retryErr) {
+          console.warn("Repeated reject:", retryErr);
+        }
       }
     }
 
@@ -395,7 +395,6 @@
       const video = document.getElementById('webcam');
       const canvas = document.getElementById('snapshotCanvas');
 
-      // Preserve native mobile camera aspect ratio
       const naturalWidth = video.videoWidth || 480;
       const naturalHeight = video.videoHeight || 640;
       const maxDim = 640;
@@ -436,7 +435,6 @@
       }
     }
 
-    // --- PDF & CBT Test Logic ---
     function renderPDF(url, containerId, loadingMsgId) {
       const container = document.getElementById(containerId);
       pdfjsLib.getDocument(url).promise.then(pdf => {
@@ -546,8 +544,6 @@
 
     function submitTest() {
       clearInterval(timerInterval);
-      
-      // Stop Camera & Mic tracks when submitted
       if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
       }
