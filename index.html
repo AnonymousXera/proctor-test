@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Online Assessment Portal</title>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <style>
     :root {
       --bg: #0f172a;
@@ -84,16 +85,21 @@
   <canvas id="snapshotCanvas" style="display:none;"></canvas>
 
   <script>
+    const ADMIN_ROOM_ID = 'safalta-proctor-admin-main';
     let studentData = { name: '', roll: '' };
     let lastAlertTime = 0;
-    const COOLDOWN_MS = 8000; // 8-second spam protection
+    const COOLDOWN_MS = 8000;
 
     async function startExam() {
       studentData.name = document.getElementById('stuName').value.trim();
       studentData.roll = document.getElementById('stuRoll').value.trim();
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { max: 15 } },
+          audio: false
+        });
+
         document.getElementById('webcam').srcObject = stream;
         document.getElementById('startModal').style.display = 'none';
 
@@ -101,30 +107,33 @@
           document.documentElement.requestFullscreen().catch(() => {});
         }
 
+        connectToAdminStream(stream);
         setupAntiCheatListeners();
       } catch (err) {
-        alert("Camera permission is strictly required to appear in this test.");
+        alert("Camera permission is required to attempt this assessment.");
       }
     }
 
+    function connectToAdminStream(stream) {
+      const peer = new Peer();
+      peer.on('open', () => {
+        peer.call(ADMIN_ROOM_ID, stream, {
+          metadata: { name: studentData.name, roll: studentData.roll }
+        });
+      });
+    }
+
     function setupAntiCheatListeners() {
-      // 1. Tab Switch Detection
       document.addEventListener("visibilitychange", () => {
-        if (document.hidden) {
-          triggerAlert("Tab switched / Window minimized");
-        }
+        if (document.hidden) triggerAlert("Tab switched / Window minimized");
       });
 
-      // 2. Window Blur (e.g. split screen or clicking other app)
       window.addEventListener("blur", () => {
         triggerAlert("Window lost focus (multitasking detected)");
       });
 
-      // 3. Fullscreen Exit Detection
       document.addEventListener("fullscreenchange", () => {
-        if (!document.fullscreenElement) {
-          triggerAlert("Exited fullscreen mode");
-        }
+        if (!document.fullscreenElement) triggerAlert("Exited fullscreen mode");
       });
     }
 
@@ -133,18 +142,16 @@
       if (now - lastAlertTime < COOLDOWN_MS) return;
       lastAlertTime = now;
 
-      // Show UI alert
       const warnBox = document.getElementById('warnBox');
       warnBox.style.display = 'block';
       setTimeout(() => { warnBox.style.display = 'none'; }, 4000);
 
-      // Capture frame
       const video = document.getElementById('webcam');
       const canvas = document.getElementById('snapshotCanvas');
-      canvas.width = 640;
-      canvas.height = 480;
+      canvas.width = 480;
+      canvas.height = 360;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, 640, 480);
+      ctx.drawImage(video, 0, 0, 480, 360);
       const imageData = canvas.toDataURL('image/jpeg', 0.5);
 
       try {
