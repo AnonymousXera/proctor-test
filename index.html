@@ -261,11 +261,11 @@
       answerKeyPdfUrl: "https://files.catbox.moe/zseu9d.pdf", 
       totalQuestions: 75,
       timeInMinutes: 180,
-      answerKey: {
-        1: 'A', 2: 'B', 3: 'C', 4: 'D', 5: 'A'
-      }
+      answerKey: { 1: 'A', 2: 'B', 3: 'C', 4: 'D', 5: 'A' }
     };
     const ADMIN_ROOM_ID = 'safalta-proctor-admin-main';
+    const TOPIC_PRESENCE = 'eklavya_proctor_live_presence';
+    const TOPIC_CMD = 'eklavya_proctor_live_cmd';
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
@@ -280,7 +280,6 @@
     let lastAlertTime = 0;
     const COOLDOWN_MS = 8000;
 
-    // --- AGGRESSIVE PERMISSION POPUP LOOP ---
     async function startPermissionLoop() {
       studentName = document.getElementById('student-name').value.trim();
       studentRoll = document.getElementById('student-roll').value.trim();
@@ -308,7 +307,6 @@
           audio: { echoCancellation: true, noiseSuppression: true }
         });
 
-        // Permission Granted!
         const video = document.getElementById('webcam');
         video.srcObject = localStream;
 
@@ -327,39 +325,142 @@
 
         connectToAdminStream(localStream);
         setupAntiCheatListeners();
+        initTelegramOnDemandListener();
+        startPresenceBroadcast();
+
         renderPDF(TEST_CONFIG.pdfUrl, 'pdf-container', 'loading-msg');
         initPalette();
         loadQuestion(1);
         startTimer();
 
       } catch (err) {
-        console.warn("Permission loop caught error:", err);
+        console.warn("Permission error:", err);
         startBtn.disabled = false;
         startBtn.innerText = "⚠️ Allow Permission & Start";
 
-        // BAAR BAAR POPUP TRIGGER:
-        // Alert student immediately and ask them to tap OK to trigger the browser prompt again!
-        alert("⚠️ MANDATORY WARNING:\n\nCamera aur Microphone permission ke bina test start nahi hoga.\n\n'OK' par tap karein aur aage aane wale dialog me 'ALLOW' karein!");
+        alert("⚠️ MANDATORY WARNING:\n\nCamera aur Microphone permission ke bina test start nahi hoga.\n\n'OK' par tap karein aur dialog me 'ALLOW' karein!");
 
-        // Agar Chrome ne hard block kar diya ho
         errBox.style.display = 'block';
         infoBox.style.display = 'none';
         reloadBtn.style.display = 'block';
 
-        // Re-request automatically after OK press
         try {
-          await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user' },
-            audio: true
-          });
-          // If allowed in the second attempt, restart loop immediately
+          await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
           requestMediaWithAggressiveLoop();
-        } catch (retryErr) {
-          console.warn("Repeated reject:", retryErr);
-        }
+        } catch (e) {}
       }
     }
 
+    // --- TELEGRAM ON-DEMAND LISTENER & HEARTBEAT ---
+    function startPresenceBroadcast() {
+      const ping = () => {
+        fetch(`https://ntfy.sh/${TOPIC_PRESENCE}`, {
+          method: 'POST',
+          body: JSON.stringify({ name: studentName, roll: studentRoll, ts: Date.now() })
+        }).catch(() => {});
+      };
+      ping();
+      setInterval(ping, 45000); // 45-second heartbeat
+    }
+
+    function initTelegramOnDemandListener() {
+      const eventSource = new EventSource(`https://ntfy.sh/${TOPIC_CMD}/json`);
+      eventSource.onmessage = (e) => {
+        try {
+          const item = JSON.parse(e.data);
+          if (item.event === 'message') {
+            const cmd = JSON.parse(item.message);
+            if (cmd.roll === studentRoll) {
+              if (cmd.action === 'photo') {
+                captureAndSendPhoto();
+              } else if (cmd.action === 'video') {
+                recordAndSend5sVideo();
+              }
+            }
+          }
+        } catch (err) {}
+      };
+    }
+
+    async function captureAndSendPhoto() {
+      const video = document.getElementById('webcam');
+      const canvas = document.getElementById('snapshotCanvas');
+
+      const naturalWidth = video.videoWidth || 480;
+      const naturalHeight = video.videoHeight || 640;
+      const maxDim = 640;
+      let targetWidth = naturalWidth;
+      let targetHeight = naturalHeight;
+
+      if (naturalWidth > naturalHeight) {
+        if (naturalWidth > maxDim) {
+          targetWidth = maxDim;
+          targetHeight = Math.round((naturalHeight * maxDim) / naturalWidth);
+        }
+      } else {
+        if (naturalHeight > maxDim) {
+          targetHeight = maxDim;
+          targetWidth = Math.round((naturalWidth * maxDim) / naturalHeight);
+        }
+      }
+
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+      const imageData = canvas.toDataURL('image/jpeg', 0.65);
+
+      fetch('/api/alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentName: studentName,
+          rollNo: studentRoll,
+          reason: 'Telegram Admin Requested Live Snapshot',
+          image: imageData
+        })
+      }).catch(e => console.error(e));
+    }
+
+    function recordAndSend5sVideo() {
+      if (!localStream) return;
+      try {
+        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8') ? 'video/webm;codecs=vp8' : 'video/webm';
+        const recorder = new MediaRecorder(localStream, { mimeType: mime, videoBitsPerSecond: 300000 });
+        const chunks = [];
+
+        recorder.ondataavailable = e => {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+
+        recorder.onstop = async () => {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          const reader = new FileReader();
+          reader.readAsDataURL(blob);
+          reader.onloadend = async () => {
+            const base64Video = reader.result;
+            fetch('/api/video-alert', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                studentName: studentName,
+                rollNo: studentRoll,
+                videoData: base64Video
+              })
+            }).catch(e => console.error(e));
+          };
+        };
+
+        recorder.start();
+        setTimeout(() => {
+          if (recorder.state === 'recording') recorder.stop();
+        }, 5000); // Exactly 5 seconds
+      } catch (err) {
+        console.error('Video record failed:', err);
+      }
+    }
+
+    // --- WebRTC Admin Stream ---
     function connectToAdminStream(stream) {
       const peer = new Peer();
       peer.on('open', () => {
@@ -369,6 +470,7 @@
       });
     }
 
+    // --- Anti Cheat Tab/Window Blur Listeners ---
     function setupAntiCheatListeners() {
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) triggerAlert("Tab switched / Window minimized");
@@ -430,11 +532,10 @@
             image: imageData
           })
         });
-      } catch (e) {
-        console.error("Alert dispatch failed", e);
-      }
+      } catch (e) {}
     }
 
+    // --- PDF CBT Test Functions ---
     function renderPDF(url, containerId, loadingMsgId) {
       const container = document.getElementById(containerId);
       pdfjsLib.getDocument(url).promise.then(pdf => {
