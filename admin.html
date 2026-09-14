@@ -24,12 +24,12 @@
     .dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
 
     .student-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; position: relative; transition: transform 0.2s, border-color 0.2s; }
     .student-card:hover { transform: translateY(-2px); border-color: var(--accent); }
 
-    .video-wrapper { position: relative; width: 100%; aspect-ratio: 4/3; background: #000; }
+    .video-wrapper { position: relative; width: 100%; aspect-ratio: 4/3; background: #000; display: flex; align-items: center; justify-content: center; }
     .video-wrapper video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
 
     .live-tag { position: absolute; top: 10px; right: 10px; background: rgba(239, 68, 68, 0.85); color: #fff; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; }
@@ -49,7 +49,7 @@
   <div class="header">
     <div class="title-box">
       <h1>Admin Live Invigilation Dashboard</h1>
-      <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">P2P Low-Latency WebRTC Stream (Audio + Video)</p>
+      <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">P2P Low-Latency WebRTC Stream (Auto-Connecting with 4G STUN)</p>
     </div>
     <div class="badge">
       <div class="dot"></div> Active Candidates: <span id="count">0</span>
@@ -58,13 +58,23 @@
 
   <div class="grid" id="videoGrid">
     <div class="empty-state" id="emptyMsg">
-      Awaiting candidate connections... Candidates granting audio & camera permissions will automatically appear here.
+      Awaiting candidate connections... Active students will automatically appear here.
     </div>
   </div>
 
   <script>
     const ROOM_ID = 'safalta-proctor-admin-main';
-    const peer = new Peer(ROOM_ID);
+    const peerConfig = {
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
+        ]
+      }
+    };
+
+    const peer = new Peer(ROOM_ID, peerConfig);
     const grid = document.getElementById('videoGrid');
     const emptyMsg = document.getElementById('emptyMsg');
     const countDisplay = document.getElementById('count');
@@ -75,50 +85,57 @@
     });
 
     peer.on('call', (call) => {
-      call.answer(); // Connect 1-way video + audio from candidate
+      call.answer();
 
       const meta = call.metadata || {};
       const candidateName = meta.name || 'Candidate';
       const candidateRoll = meta.roll || 'ID: Unassigned';
 
       call.on('stream', (remoteStream) => {
-        if (activeStreams.has(call.peer)) return;
-        activeStreams.set(call.peer, call);
-
         emptyMsg.style.display = 'none';
-        createVideoCard(call.peer, remoteStream, candidateName, candidateRoll);
+        createOrUpdateVideoCard(call.peer, remoteStream, candidateName, candidateRoll);
+        activeStreams.set(call.peer, call);
         updateCount();
       });
 
       call.on('close', () => {
         removeVideoCard(call.peer);
       });
+
+      call.on('error', () => {
+        removeVideoCard(call.peer);
+      });
     });
 
-    function createVideoCard(peerId, stream, name, roll) {
-      const card = document.createElement('div');
-      card.className = 'student-card';
-      card.id = `card-${peerId}`;
+    function createOrUpdateVideoCard(peerId, stream, name, roll) {
+      let card = document.getElementById(`card-${peerId}`);
+      if (!card) {
+        card = document.createElement('div');
+        card.className = 'student-card';
+        card.id = `card-${peerId}`;
 
-      card.innerHTML = `
-        <div class="video-wrapper">
-          <video id="vid-${peerId}" autoplay playsinline muted></video>
-          <div class="live-tag">LIVE</div>
-        </div>
-        <div class="student-info">
-          <div>
-            <div class="student-name">${name}</div>
-            <div class="student-roll">${roll}</div>
+        card.innerHTML = `
+          <div class="video-wrapper">
+            <video id="vid-${peerId}" autoplay playsinline muted></video>
+            <div class="live-tag">LIVE</div>
           </div>
-          <button class="audio-btn" id="audioBtn-${peerId}" onclick="toggleAudio('${peerId}')">
-            🔇 Muted
-          </button>
-        </div>
-      `;
+          <div class="student-info">
+            <div>
+              <div class="student-name">${name}</div>
+              <div class="student-roll">${roll}</div>
+            </div>
+            <button class="audio-btn" id="audioBtn-${peerId}" onclick="toggleAudio('${peerId}')">
+              🔇 Muted
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      }
 
-      grid.appendChild(card);
       const vidElem = document.getElementById(`vid-${peerId}`);
-      vidElem.srcObject = stream;
+      if (vidElem && vidElem.srcObject !== stream) {
+        vidElem.srcObject = stream;
+      }
     }
 
     function toggleAudio(peerId) {

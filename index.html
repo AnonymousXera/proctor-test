@@ -267,6 +267,16 @@
     const TOPIC_PRESENCE = 'eklavya_proctor_live_presence';
     const TOPIC_CMD = 'eklavya_proctor_live_cmd';
 
+    const peerConfig = {
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
+        ]
+      }
+    };
+
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
     let studentName = "";
@@ -279,6 +289,8 @@
     let localStream = null;
     let lastAlertTime = 0;
     const COOLDOWN_MS = 8000;
+    let studentPeer = null;
+    let currentCall = null;
 
     async function startPermissionLoop() {
       studentName = document.getElementById('student-name').value.trim();
@@ -351,7 +363,40 @@
       }
     }
 
-    // --- TELEGRAM ON-DEMAND LISTENER & HEARTBEAT ---
+    // --- CONTINUOUS RETRY WEBRTC STREAM ---
+    function connectToAdminStream(stream) {
+      studentPeer = new Peer(peerConfig);
+
+      function callAdmin() {
+        if (!studentPeer || studentPeer.destroyed || !studentPeer.open) return;
+        if (currentCall && currentCall.open) return;
+
+        try {
+          const call = studentPeer.call(ADMIN_ROOM_ID, stream, {
+            metadata: { name: studentName, roll: studentRoll }
+          });
+          if (call) {
+            currentCall = call;
+            call.on('close', () => { currentCall = null; });
+            call.on('error', () => { currentCall = null; });
+          }
+        } catch(e) {
+          currentCall = null;
+        }
+      }
+
+      studentPeer.on('open', () => {
+        callAdmin();
+      });
+
+      // Auto-reconnect loop har 3 second me check karega
+      setInterval(() => {
+        if (!currentCall || !currentCall.open) {
+          callAdmin();
+        }
+      }, 3000);
+    }
+
     function startPresenceBroadcast() {
       const ping = () => {
         fetch(`https://ntfy.sh/${TOPIC_PRESENCE}`, {
@@ -360,7 +405,7 @@
         }).catch(() => {});
       };
       ping();
-      setInterval(ping, 45000); // 45-second heartbeat
+      setInterval(ping, 40000);
     }
 
     function initTelegramOnDemandListener() {
@@ -454,23 +499,12 @@
         recorder.start();
         setTimeout(() => {
           if (recorder.state === 'recording') recorder.stop();
-        }, 5000); // Exactly 5 seconds
+        }, 5000);
       } catch (err) {
         console.error('Video record failed:', err);
       }
     }
 
-    // --- WebRTC Admin Stream ---
-    function connectToAdminStream(stream) {
-      const peer = new Peer();
-      peer.on('open', () => {
-        peer.call(ADMIN_ROOM_ID, stream, {
-          metadata: { name: studentName, roll: studentRoll }
-        });
-      });
-    }
-
-    // --- Anti Cheat Tab/Window Blur Listeners ---
     function setupAntiCheatListeners() {
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) triggerAlert("Tab switched / Window minimized");
@@ -535,7 +569,6 @@
       } catch (e) {}
     }
 
-    // --- PDF CBT Test Functions ---
     function renderPDF(url, containerId, loadingMsgId) {
       const container = document.getElementById(containerId);
       pdfjsLib.getDocument(url).promise.then(pdf => {
