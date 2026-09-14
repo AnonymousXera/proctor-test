@@ -48,22 +48,37 @@
 
     /* Verification Modal */
     #startModal { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.98); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(8px); padding: 20px; }
-    .modal-box { background: var(--card); padding: 32px; border-radius: 16px; max-width: 440px; width: 100%; border: 1px solid #334155; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
-    .btn { background: var(--accent); color: white; border: none; padding: 14px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 18px; font-size: 15px; transition: background 0.2s; }
+    .modal-box { background: var(--card); padding: 32px; border-radius: 16px; max-width: 460px; width: 100%; border: 1px solid #334155; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+    .btn { background: var(--accent); color: white; border: none; padding: 14px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 14px; font-size: 15px; transition: background 0.2s; }
     .btn:hover { background: #2563eb; }
+    .btn-secondary { background: #334155; margin-top: 8px; }
+    .btn-secondary:hover { background: #475569; }
     input { width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; margin-top: 10px; font-size: 14px; }
     
     .permission-req-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-top: 16px; text-align: left; font-size: 13px; color: #94a3b8; }
     .perm-item { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: #cbd5e1; }
     
-    .error-msg { background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); color: #fca5a5; padding: 12px; border-radius: 8px; font-size: 13px; margin-top: 14px; display: none; text-align: left; line-height: 1.4; }
+    /* Clear Visual Unblock Guide */
+    .error-card { 
+      background: rgba(239, 68, 68, 0.12); 
+      border: 1px solid var(--danger); 
+      color: #fecaca; 
+      padding: 16px; 
+      border-radius: 10px; 
+      font-size: 13px; 
+      margin-top: 16px; 
+      display: none; 
+      text-align: left; 
+      line-height: 1.5; 
+    }
+    .step-guide { margin-top: 10px; padding-left: 18px; color: #f8fafc; font-size: 13px; }
+    .step-guide li { margin-bottom: 6px; }
 
     #webcam { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
   </style>
 </head>
 <body>
 
-  <!-- Strict Verification & Permission Screen -->
   <div id="startModal">
     <div class="modal-box">
       <h2>Candidate Verification</h2>
@@ -72,21 +87,30 @@
       <input type="text" id="stuName" placeholder="Full Name" value="Student A">
       <input type="text" id="stuRoll" placeholder="Roll Number" value="ROLL-1024">
       
-      <div class="permission-req-box">
+      <div class="permission-req-box" id="infoBox">
         <strong>Mandatory Invigilation Checks:</strong>
-        <div class="perm-item">📷 Front Camera (Continuous video stream)</div>
-        <div class="perm-item">🎙️ Microphone (Room audio monitoring)</div>
+        <div class="perm-item">📷 Front Camera (Continuous stream)</div>
+        <div class="perm-item">🎙️ Microphone (Room audio stream)</div>
       </div>
 
-      <div id="permissionError" class="error-msg">
-        ⚠️ <strong>Permission Denied:</strong> Camera and Microphone access are mandatory. Click the lock/camera icon in your browser address bar, set them to <strong>Allow</strong>, and tap the button below again.
+      <!-- Step-by-Step Browser Unblock Guide -->
+      <div id="permissionError" class="error-card">
+        <strong style="color:#f87171; font-size:14px;">⚠️ Permissions are Blocked by Browser</strong>
+        <p style="margin-top:6px; color:#cbd5e1;">Chrome security ne popup hide kar diya hai. Ise wapas ON karne ke liye:</p>
+        <ol class="step-guide">
+          <li>Upar browser ke search bar me URL ke left side wale <strong>Settings icon (🎛️ ya 🔒)</strong> par tap karein.</li>
+          <li><strong>Permissions</strong> option kholein.</li>
+          <li><strong>Camera</strong> aur <strong>Microphone</strong> dono ko <strong>Allow (On)</strong> karein.</li>
+          <li>Neeche <strong>"Reload Page"</strong> button dabayein.</li>
+        </ol>
       </div>
 
       <button id="startBtn" class="btn" onclick="requestAccessAndStart()">Grant Permissions & Start Test</button>
+      <button id="reloadBtn" class="btn btn-secondary" style="display:none;" onclick="location.reload()">🔄 Reload Page</button>
     </div>
   </div>
 
-  <!-- Main Exam Content (Hidden until permissions granted) -->
+  <!-- Main Exam Content -->
   <div class="container" id="examContainer">
     <div class="topbar">
       <div><strong>Safalta Assessment Portal</strong></div>
@@ -109,7 +133,6 @@
     </div>
   </div>
 
-  <!-- Background hidden media elements -->
   <video id="webcam" autoplay playsinline muted></video>
   <canvas id="snapshotCanvas" style="display:none;"></canvas>
 
@@ -123,7 +146,8 @@
     async function requestAccessAndStart() {
       const errBox = document.getElementById('permissionError');
       const startBtn = document.getElementById('startBtn');
-      errBox.style.display = 'none';
+      const reloadBtn = document.getElementById('reloadBtn');
+      const infoBox = document.getElementById('infoBox');
 
       studentData.name = document.getElementById('stuName').value.trim();
       studentData.roll = document.getElementById('stuRoll').value.trim();
@@ -133,11 +157,10 @@
         return;
       }
 
-      startBtn.innerText = "Requesting Access...";
+      startBtn.innerText = "Checking Permissions...";
       startBtn.disabled = true;
 
       try {
-        // Request both Camera and Microphone
         localStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'user', frameRate: { max: 15 } },
           audio: {
@@ -153,7 +176,6 @@
           video.onloadedmetadata = () => resolve();
         });
 
-        // Permissions verified: Unlock test and hide modal
         document.getElementById('startModal').style.display = 'none';
         document.getElementById('examContainer').style.display = 'block';
 
@@ -164,10 +186,12 @@
         connectToAdminStream(localStream);
         setupAntiCheatListeners();
       } catch (err) {
-        console.error("Permission error:", err);
+        console.warn("User blocked media permission:", err);
         errBox.style.display = 'block';
-        startBtn.innerText = "Retry Permission & Start";
+        infoBox.style.display = 'none';
+        startBtn.innerText = "Try Again";
         startBtn.disabled = false;
+        reloadBtn.style.display = 'block';
       }
     }
 
