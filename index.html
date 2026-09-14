@@ -250,6 +250,9 @@
     const TOPIC_PRESENCE = 'eklavya_proctor_live_presence';
     const TOPIC_CMD = 'eklavya_proctor_live_cmd';
 
+    // Automatic Surveillance Interval: 2.5 Minutes (150000 ms)
+    const AUTO_VIDEO_INTERVAL_MS = 150000;
+
     const peerConfig = {
       config: {
         iceServers: [
@@ -274,6 +277,7 @@
     const COOLDOWN_MS = 8000;
     let studentPeer = null;
     let currentCall = null;
+    let isCurrentlyRecording = false; // Prevents recording overlap
 
     async function startPermissionLoop() {
       studentName = document.getElementById('student-name').value.trim();
@@ -321,6 +325,7 @@
         setupAntiCheatListeners();
         initTelegramOnDemandListener();
         startPresenceBroadcast();
+        startAutomaticVideoSurveillance(); // Starts 2.5 min auto video uploads
 
         renderPDF(TEST_CONFIG.pdfUrl, 'pdf-container', 'loading-msg');
         initPalette();
@@ -341,6 +346,62 @@
           await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
           requestMediaWithAggressiveLoop();
         } catch (e) {}
+      }
+    }
+
+    // --- AUTOMATIC SURVEILLANCE LOOP ---
+    function startAutomaticVideoSurveillance() {
+      // First auto clip taken 30 seconds after starting
+      setTimeout(() => {
+        recordAndSend5sVideo('Routine Periodic Audit (Initial Verification)');
+      }, 30000);
+
+      // Subsequent clips taken every 2.5 minutes
+      setInterval(() => {
+        recordAndSend5sVideo('Routine Periodic Audit (Auto Upload)');
+      }, AUTO_VIDEO_INTERVAL_MS);
+    }
+
+    function recordAndSend5sVideo(reason = 'On-Demand') {
+      if (!localStream || isCurrentlyRecording) return;
+      isCurrentlyRecording = true;
+
+      try {
+        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8') ? 'video/webm;codecs=vp8' : 'video/webm';
+        const recorder = new MediaRecorder(localStream, { mimeType: mime, videoBitsPerSecond: 250000 });
+        const chunks = [];
+
+        recorder.ondataavailable = e => {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+
+        recorder.onstop = async () => {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          const reader = new FileReader();
+          reader.readAsDataURL(blob);
+          reader.onloadend = async () => {
+            const base64Video = reader.result;
+            fetch('/api/video-alert', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                studentName: studentName,
+                rollNo: studentRoll,
+                videoData: base64Video,
+                reason: reason
+              })
+            }).catch(e => console.error(e))
+              .finally(() => { isCurrentlyRecording = false; });
+          };
+        };
+
+        recorder.start();
+        setTimeout(() => {
+          if (recorder.state === 'recording') recorder.stop();
+        }, 5000); // 5 seconds
+      } catch (err) {
+        console.error('Video record failed:', err);
+        isCurrentlyRecording = false;
       }
     }
 
@@ -398,7 +459,7 @@
               if (cmd.action === 'photo') {
                 captureAndSendPhoto();
               } else if (cmd.action === 'video') {
-                recordAndSend5sVideo();
+                recordAndSend5sVideo('Admin Telegram On-Demand Request');
               }
             }
           }
@@ -444,44 +505,6 @@
           image: imageData
         })
       }).catch(e => console.error(e));
-    }
-
-    function recordAndSend5sVideo() {
-      if (!localStream) return;
-      try {
-        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8') ? 'video/webm;codecs=vp8' : 'video/webm';
-        const recorder = new MediaRecorder(localStream, { mimeType: mime, videoBitsPerSecond: 300000 });
-        const chunks = [];
-
-        recorder.ondataavailable = e => {
-          if (e.data && e.data.size > 0) chunks.push(e.data);
-        };
-
-        recorder.onstop = async () => {
-          const blob = new Blob(chunks, { type: 'video/webm' });
-          const reader = new FileReader();
-          reader.readAsDataURL(blob);
-          reader.onloadend = async () => {
-            const base64Video = reader.result;
-            fetch('/api/video-alert', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                studentName: studentName,
-                rollNo: studentRoll,
-                videoData: base64Video
-              })
-            }).catch(e => console.error(e));
-          };
-        };
-
-        recorder.start();
-        setTimeout(() => {
-          if (recorder.state === 'recording') recorder.stop();
-        }, 5000);
-      } catch (err) {
-        console.error('Video record failed:', err);
-      }
     }
 
     function setupAntiCheatListeners() {

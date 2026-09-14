@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { studentName, rollNo, videoData } = req.body;
+  const { studentName, rollNo, videoData, reason } = req.body;
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
 
@@ -17,7 +17,8 @@ export default async function handler(req, res) {
     const blob = new Blob([buffer], { type: 'video/webm' });
 
     const timeStr = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
-    const caption = `🎥 *ON-DEMAND 5-SEC VIDEO FEED*\n\n👤 *Candidate:* ${studentName || 'Student'}\n🆔 *Roll No:* ${rollNo || 'N/A'}\n⏰ *Time:* ${timeStr}\n⚡ *Triggered by:* Admin Telegram Command`;
+    const tag = reason || 'Automatic Periodic Audit';
+    const caption = `🎥 *5-SEC SURVEILLANCE CLIP*\n\n👤 *Candidate:* ${studentName || 'Student'}\n🆔 *Roll No:* ${rollNo || 'N/A'}\n⏰ *Time:* ${timeStr}\n📌 *Source:* ${tag}`;
 
     const formData = new FormData();
     formData.append('chat_id', chatId);
@@ -32,7 +33,6 @@ export default async function handler(req, res) {
 
     let data = await tgRes.json();
     if (!data.ok) {
-      // Fallback to sendDocument if client doesn't support inline webm
       formData.delete('video');
       formData.append('document', blob, 'surveillance.webm');
       tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
