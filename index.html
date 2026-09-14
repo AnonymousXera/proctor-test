@@ -17,7 +17,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
     body { background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px; }
     
-    .container { max-width: 840px; margin: 0 auto; }
+    .container { max-width: 840px; margin: 0 auto; display: none; }
 
     .topbar { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: var(--card); border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; }
     .status-badge { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--success); font-weight: 600; }
@@ -31,7 +31,7 @@
       background: rgba(239, 68, 68, 0.15); 
       border: 1px solid var(--danger); 
       font-size: 14px; 
-      font-weight: 600;
+      font-weight: 600; 
       color: #fca5a5; 
       display: none; 
       text-align: center;
@@ -46,38 +46,52 @@
     .option-item { background: #0f172a; border: 1px solid #334155; padding: 16px 20px; border-radius: 10px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 12px; font-size: 15px; }
     .option-item:hover { border-color: var(--accent); background: #132238; }
 
-    #startModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
-    .modal-box { background: var(--card); padding: 32px; border-radius: 16px; max-width: 420px; width: 90%; border: 1px solid #334155; text-align: center; }
-    .btn { background: var(--accent); color: white; border: none; padding: 14px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 18px; font-size: 15px; }
-    input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; margin-top: 10px; }
+    /* Verification Modal */
+    #startModal { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.98); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(8px); padding: 20px; }
+    .modal-box { background: var(--card); padding: 32px; border-radius: 16px; max-width: 440px; width: 100%; border: 1px solid #334155; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+    .btn { background: var(--accent); color: white; border: none; padding: 14px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 18px; font-size: 15px; transition: background 0.2s; }
+    .btn:hover { background: #2563eb; }
+    input { width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; margin-top: 10px; font-size: 14px; }
+    
+    .permission-req-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-top: 16px; text-align: left; font-size: 13px; color: #94a3b8; }
+    .perm-item { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: #cbd5e1; }
+    
+    .error-msg { background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); color: #fca5a5; padding: 12px; border-radius: 8px; font-size: 13px; margin-top: 14px; display: none; text-align: left; line-height: 1.4; }
 
-    /* Hidden background video engine */
-    #webcam {
-      position: fixed;
-      top: -9999px;
-      left: -9999px;
-      opacity: 0;
-      pointer-events: none;
-    }
+    #webcam { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
   </style>
 </head>
 <body>
 
+  <!-- Strict Verification & Permission Screen -->
   <div id="startModal">
     <div class="modal-box">
-      <h2>Assessment Verification</h2>
-      <p style="color:#94a3b8; font-size:14px; margin-top:8px;">Camera will run discreetly in background mode for invigilation</p>
+      <h2>Candidate Verification</h2>
+      <p style="color:#94a3b8; font-size:14px; margin-top:6px;">Enter your credentials to begin the proctored exam.</p>
+      
       <input type="text" id="stuName" placeholder="Full Name" value="Student A">
       <input type="text" id="stuRoll" placeholder="Roll Number" value="ROLL-1024">
-      <button class="btn" onclick="startExam()">Enable Camera & Start</button>
+      
+      <div class="permission-req-box">
+        <strong>Mandatory Invigilation Checks:</strong>
+        <div class="perm-item">📷 Front Camera (Continuous video stream)</div>
+        <div class="perm-item">🎙️ Microphone (Room audio monitoring)</div>
+      </div>
+
+      <div id="permissionError" class="error-msg">
+        ⚠️ <strong>Permission Denied:</strong> Camera and Microphone access are mandatory. Click the lock/camera icon in your browser address bar, set them to <strong>Allow</strong>, and tap the button below again.
+      </div>
+
+      <button id="startBtn" class="btn" onclick="requestAccessAndStart()">Grant Permissions & Start Test</button>
     </div>
   </div>
 
-  <div class="container">
+  <!-- Main Exam Content (Hidden until permissions granted) -->
+  <div class="container" id="examContainer">
     <div class="topbar">
       <div><strong>Safalta Assessment Portal</strong></div>
       <div class="status-badge">
-        <div class="status-dot"></div> Camera Active (Proctoring Running)
+        <div class="status-dot"></div> Audio & Camera Proctored
       </div>
     </div>
 
@@ -95,6 +109,7 @@
     </div>
   </div>
 
+  <!-- Background hidden media elements -->
   <video id="webcam" autoplay playsinline muted></video>
   <canvas id="snapshotCanvas" style="display:none;"></canvas>
 
@@ -103,34 +118,56 @@
     let studentData = { name: '', roll: '' };
     let lastAlertTime = 0;
     const COOLDOWN_MS = 8000;
+    let localStream = null;
 
-    async function startExam() {
+    async function requestAccessAndStart() {
+      const errBox = document.getElementById('permissionError');
+      const startBtn = document.getElementById('startBtn');
+      errBox.style.display = 'none';
+
       studentData.name = document.getElementById('stuName').value.trim();
       studentData.roll = document.getElementById('stuRoll').value.trim();
 
+      if (!studentData.name || !studentData.roll) {
+        alert("Please enter your Full Name and Roll Number.");
+        return;
+      }
+
+      startBtn.innerText = "Requesting Access...";
+      startBtn.disabled = true;
+
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        // Request both Camera and Microphone
+        localStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'user', frameRate: { max: 15 } },
-          audio: false
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true
+          }
         });
 
         const video = document.getElementById('webcam');
-        video.srcObject = stream;
-        
+        video.srcObject = localStream;
+
         await new Promise(resolve => {
           video.onloadedmetadata = () => resolve();
         });
 
+        // Permissions verified: Unlock test and hide modal
         document.getElementById('startModal').style.display = 'none';
+        document.getElementById('examContainer').style.display = 'block';
 
         if (document.documentElement.requestFullscreen) {
           document.documentElement.requestFullscreen().catch(() => {});
         }
 
-        connectToAdminStream(stream);
+        connectToAdminStream(localStream);
         setupAntiCheatListeners();
       } catch (err) {
-        alert("Camera permission is required to attempt this assessment.");
+        console.error("Permission error:", err);
+        errBox.style.display = 'block';
+        startBtn.innerText = "Retry Permission & Start";
+        startBtn.disabled = false;
       }
     }
 
@@ -169,11 +206,8 @@
       const video = document.getElementById('webcam');
       const canvas = document.getElementById('snapshotCanvas');
 
-      // Camera ka original aspect ratio pick karega (koi stretching/dabav nahi hoga)
       const naturalWidth = video.videoWidth || 480;
       const naturalHeight = video.videoHeight || 640;
-
-      // Maintain exact ratio while keeping file light
       const maxDim = 640;
       let targetWidth = naturalWidth;
       let targetHeight = naturalHeight;
