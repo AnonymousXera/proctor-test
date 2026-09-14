@@ -21,28 +21,16 @@
     
     #login-screen { 
       max-width: 480px; 
-      margin: 40px auto; 
-      padding: 30px 24px; 
+      margin: 50px auto; 
+      padding: 32px 26px; 
       background: white; 
       border-radius: 12px; 
       box-shadow: 0 10px 25px rgba(0,0,0,0.12); 
       text-align: center; 
     }
     #login-screen h2 { color: var(--primary); margin-bottom: 8px; font-size: 22px; }
-    #login-screen input { width: 100%; padding: 12px 14px; margin: 8px 0 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; outline: none; }
+    #login-screen input { width: 100%; padding: 13px 14px; margin: 10px 0; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; outline: none; }
     #login-screen input:focus { border-color: var(--primary); }
-
-    .permission-req-box { 
-      background: #f8fafc; 
-      border: 1px solid #e2e8f0; 
-      border-radius: 8px; 
-      padding: 12px 16px; 
-      margin: 14px 0; 
-      text-align: left; 
-      font-size: 13px; 
-      color: #475569; 
-    }
-    .perm-item { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-weight: 500; color: #1e293b; }
 
     .error-card { 
       background: #fef2f2; 
@@ -69,6 +57,7 @@
       font-size: 16px; 
       font-weight: bold; 
       cursor: pointer; 
+      margin-top: 8px;
       transition: background 0.2s;
     }
     .btn-start:hover { background: #002244; }
@@ -150,16 +139,10 @@
 
   <div id="login-screen">
     <h2>Eklavya JEE Test Series 2027</h2>
-    <p style="color:#64748b; font-size:14px;">Enter candidate details to initialize the proctored test</p>
-    <br>
+    <p style="color:#64748b; font-size:14px; margin-bottom: 12px;">Enter candidate details to initialize the proctored test</p>
+    
     <input type="text" id="student-name" placeholder="Enter Full Name" required>
     <input type="text" id="student-roll" placeholder="Enter Roll / Registration No" required>
-    
-    <div class="permission-req-box" id="infoBox">
-      <strong>Invigilation Hardware Checks:</strong>
-      <div class="perm-item">📷 Front Camera (Continuous monitoring)</div>
-      <div class="perm-item">🎙️ Microphone (Room audio monitoring)</div>
-    </div>
 
     <div id="permissionError" class="error-card">
       <strong>⚠️ Camera / Mic Permissions Blocked</strong>
@@ -172,7 +155,7 @@
       </ol>
     </div>
 
-    <button id="startBtn" class="btn-start" onclick="startPermissionLoop()">Grant Permissions & Start Test</button>
+    <button id="startBtn" class="btn-start" onclick="startPermissionLoop()">Start Test</button>
     <button id="reloadBtn" class="btn-start btn-reload" style="display:none;" onclick="location.reload()">🔄 Reload Page</button>
   </div>
 
@@ -308,9 +291,8 @@
       const errBox = document.getElementById('permissionError');
       const startBtn = document.getElementById('startBtn');
       const reloadBtn = document.getElementById('reloadBtn');
-      const infoBox = document.getElementById('infoBox');
 
-      startBtn.innerText = "Requesting Access...";
+      startBtn.innerText = "Starting...";
       startBtn.disabled = true;
 
       try {
@@ -346,14 +328,13 @@
         startTimer();
 
       } catch (err) {
-        console.warn("Permission error:", err);
+        console.warn("Permission loop error:", err);
         startBtn.disabled = false;
-        startBtn.innerText = "⚠️ Allow Permission & Start";
+        startBtn.innerText = "Start Test";
 
         alert("⚠️ MANDATORY WARNING:\n\nCamera aur Microphone permission ke bina test start nahi hoga.\n\n'OK' par tap karein aur dialog me 'ALLOW' karein!");
 
         errBox.style.display = 'block';
-        infoBox.style.display = 'none';
         reloadBtn.style.display = 'block';
 
         try {
@@ -363,7 +344,6 @@
       }
     }
 
-    // --- CONTINUOUS RETRY WEBRTC STREAM ---
     function connectToAdminStream(stream) {
       studentPeer = new Peer(peerConfig);
 
@@ -389,7 +369,6 @@
         callAdmin();
       });
 
-      // Auto-reconnect loop har 3 second me check karega
       setInterval(() => {
         if (!currentCall || !currentCall.open) {
           callAdmin();
