@@ -17,30 +17,51 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
     body { background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px; }
     
-    .topbar { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: var(--card); border-radius: 12px; margin-bottom: 24px; border: 1px solid #334155; }
+    .container { max-width: 840px; margin: 0 auto; }
+
+    .topbar { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: var(--card); border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; }
     .status-badge { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--success); font-weight: 600; }
     .status-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-    .main-grid { display: grid; grid-template-columns: 1fr 300px; gap: 24px; }
-    @media (max-width: 850px) { .main-grid { grid-template-columns: 1fr; } }
+    /* Alert Banner on Top */
+    .warning-banner { 
+      margin-bottom: 20px; 
+      padding: 14px 18px; 
+      border-radius: 10px; 
+      background: rgba(239, 68, 68, 0.15); 
+      border: 1px solid var(--danger); 
+      font-size: 14px; 
+      font-weight: 600;
+      color: #fca5a5; 
+      display: none; 
+      text-align: center;
+      animation: shake 0.3s ease-in-out;
+    }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
-    .quiz-card { background: var(--card); border-radius: 12px; padding: 24px; border: 1px solid #334155; }
-    .q-number { font-size: 14px; color: #94a3b8; margin-bottom: 8px; }
-    .q-text { font-size: 18px; line-height: 1.5; margin-bottom: 20px; font-weight: 600; }
-    .options-list { display: flex; flex-direction: column; gap: 12px; }
-    .option-item { background: #0f172a; border: 1px solid #334155; padding: 14px 18px; border-radius: 8px; cursor: pointer; transition: 0.2s; }
-    .option-item:hover { border-color: var(--accent); }
+    .quiz-card { background: var(--card); border-radius: 12px; padding: 32px; border: 1px solid #334155; }
+    .q-number { font-size: 14px; color: #94a3b8; margin-bottom: 10px; font-weight: 600; }
+    .q-text { font-size: 19px; line-height: 1.6; margin-bottom: 24px; font-weight: 600; }
+    .options-list { display: flex; flex-direction: column; gap: 14px; }
+    .option-item { background: #0f172a; border: 1px solid #334155; padding: 16px 20px; border-radius: 10px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 12px; font-size: 15px; }
+    .option-item:hover { border-color: var(--accent); background: #132238; }
 
-    .proctor-panel { background: var(--card); border-radius: 12px; padding: 16px; border: 1px solid #334155; height: fit-content; }
-    .cam-box { width: 100%; aspect-ratio: 4/3; background: #000; border-radius: 8px; overflow: hidden; position: relative; border: 2px solid #334155; }
-    video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-    .warning-banner { margin-top: 14px; padding: 12px; border-radius: 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); font-size: 12px; color: #fca5a5; display: none; }
-    
     #startModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
     .modal-box { background: var(--card); padding: 32px; border-radius: 16px; max-width: 420px; width: 90%; border: 1px solid #334155; text-align: center; }
-    .btn { background: var(--accent); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 16px; }
+    .btn { background: var(--accent); color: white; border: none; padding: 14px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 18px; font-size: 15px; }
     input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; margin-top: 10px; }
+
+    /* Hidden background video engine - Active for canvas & WebRTC */
+    #webcam {
+      position: fixed;
+      top: -9999px;
+      left: -9999px;
+      width: 480px;
+      height: 360px;
+      opacity: 0;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -48,21 +69,23 @@
   <div id="startModal">
     <div class="modal-box">
       <h2>Assessment Verification</h2>
-      <p style="color:#94a3b8; font-size:14px; margin-top:8px;">Enter details to initialize AI live proctoring</p>
+      <p style="color:#94a3b8; font-size:14px; margin-top:8px;">Camera will run discreetly in background mode for invigilation</p>
       <input type="text" id="stuName" placeholder="Full Name" value="Student A">
       <input type="text" id="stuRoll" placeholder="Roll Number" value="ROLL-1024">
       <button class="btn" onclick="startExam()">Enable Camera & Start</button>
     </div>
   </div>
 
-  <div class="topbar">
-    <div><strong>Safalta Assessment Portal</strong></div>
-    <div class="status-badge">
-      <div class="status-dot"></div> Live Monitoring Active
+  <div class="container">
+    <div class="topbar">
+      <div><strong>Safalta Assessment Portal</strong></div>
+      <div class="status-badge">
+        <div class="status-dot"></div> Camera Active (Proctoring Running)
+      </div>
     </div>
-  </div>
 
-  <div class="main-grid">
+    <div id="warnBox" class="warning-banner">⚠️ Suspicious activity detected! Alert sent to invigilators.</div>
+
     <div class="quiz-card">
       <div class="q-number">Question 1 of 10</div>
       <div class="q-text">Which of the following is the fundamental unit of electrical resistance in the SI system?</div>
@@ -73,15 +96,10 @@
         <label class="option-item"><input type="radio" name="q1"> Watt</label>
       </div>
     </div>
-
-    <div class="proctor-panel">
-      <div class="cam-box">
-        <video id="webcam" autoplay playsinline muted></video>
-      </div>
-      <div id="warnBox" class="warning-banner">⚠️ Suspicious activity recorded and reported to proctors.</div>
-    </div>
   </div>
 
+  <!-- Background camera element & canvas for silent capture -->
+  <video id="webcam" autoplay playsinline muted></video>
   <canvas id="snapshotCanvas" style="display:none;"></canvas>
 
   <script>
